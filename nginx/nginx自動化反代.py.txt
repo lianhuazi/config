@@ -1,0 +1,100 @@
+#coding:utf-8
+#qq:123769752
+#python/shell qq 群:35666534
+import re,os
+def make_config(upstream,server,server_name,root,proxy_temp_path,Referer,Host):
+	config="""
+	upstream %s_proxy{
+			server %s;
+	}
+	server {
+			listen 80;
+			server_name %s;
+			root %s%s;
+			index index.html index.htm index.php;
+        location ~ /$
+        {
+                if ( -e $request_filename )
+                {
+                        rewrite (.*) /index.html break;
+                }
+                error_page 404 = @homepage;
+        }
+        location @homepage
+        {
+                                proxy_cache_revalidate on;
+                                proxy_ignore_client_abort on;
+                                proxy_set_header Referer  %s;
+                                proxy_set_header Host  %s;
+                                proxy_set_header REMOTE-HOST $remote_addr;
+                                proxy_set_header X-Real-IP $remote_addr;
+                                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                                proxy_set_header Accept-Encoding none;
+                                proxy_connect_timeout 60;
+                                proxy_send_timeout 60;
+                                proxy_read_timeout 60;
+                                if ( !-f $request_filename )
+                                {
+                                                proxy_pass http://%s_proxy;
+                                }
+
+        }
+
+	
+	location / {
+				proxy_store on;
+				proxy_store_access user:rw group:rw all:r;
+				proxy_temp_path %s%s/tmp;
+				proxy_redirect          off;
+				proxy_ignore_headers "Cache-Control" "Expires" "Set-Cookie";
+				proxy_cache_use_stale error timeout http_500 http_502 http_503 http_504;
+				proxy_cache_lock on;
+				proxy_cache_valid 200 31d;
+				proxy_cache_revalidate on;
+				proxy_ignore_client_abort on;
+				proxy_set_header Referer  %s;
+				proxy_set_header Host  %s;
+				proxy_set_header REMOTE-HOST $remote_addr;
+				proxy_set_header X-Real-IP $remote_addr;
+				proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+				proxy_set_header Accept-Encoding none;
+				proxy_connect_timeout 60;
+				proxy_send_timeout 60;
+				proxy_read_timeout 60;
+				if ( !-f $request_filename )
+				{
+						proxy_pass http://%s_proxy;
+				}
+			}
+	}"""%(upstream,server,server_name,web_path,root,Referer,Host,upstream,web_path,proxy_temp_path,Referer,Host,upstream)
+	return config
+
+
+host_list={
+
+}
+web_path="/www/web/"
+def getIp(domain):
+    import socket
+    myaddr = socket.getaddrinfo(domain,'http')[0][4][0]
+    return(myaddr)
+
+
+for i,j in host_list.items():
+	_break=0
+	ip=None
+	if not os.path.exists("%s%s"%(web_path,j)):
+		os.makedirs("%s%s"%(web_path,j))
+		os.chown("%s%s"%(web_path,j),1000,1000)
+	while True:
+		try:
+			_break=_break+1
+			ip=getIp(i)
+		except:
+			pass
+		if ip or _break > 20:
+			break
+		else:
+			continue
+	ok=make_config(re.sub(r'\.|/','',i),ip,j,j,j,re.sub(r'/(.*)','',i),re.sub(r'/(.*)','',i))
+	open("%s.conf"%j,"wb").write(ok)
